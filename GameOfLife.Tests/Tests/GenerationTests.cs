@@ -24,7 +24,7 @@ public class GenerationTests {
         public void Should_Calculate_Appropriate_Neighbour_Count_For_Middle_Cell_In_A_3x3_Grid(string grid, int expectedCount) {
             var generation = new Generation(grid, 3, 3);
 
-            var count = generation.GetNeighbourCount(1, 1);
+            var count = generation.GetLiveNeighboursCount(1, 1);
 
             Assert.Equal(expectedCount, count);
         }
@@ -32,14 +32,14 @@ public class GenerationTests {
 
     public class Rules {
         [Fact]
-        public void Should_Be_Empty_If_Starts_Empty() {
+        public void Grid_Should_Be_Empty_If_Starts_Empty() {
             var generation = new Generation();
 
             Assert.Equal(0, generation.TotalAlive);
         }
 
         [Fact]
-        public void Should_Have_Cells_If_Started_With_Cells() {
+        public void Grid_Should_Have_Cells_If_Started_With_Cells() {
             var generation = new Generation(new Coordinate(1, 4), new Coordinate(2, 3));
 
             Assert.True(generation.IsAlive(1, 4));
@@ -47,7 +47,7 @@ public class GenerationTests {
         }
 
         [Fact]
-        public void Should_Kill_Of_A_Lone_Cell() {
+        public void Tick_Should_Kill_Of_A_Lone_Cell() {
             var generation = new Generation(new Coordinate(1, 1));
 
             var next = generation.Tick();
@@ -56,7 +56,7 @@ public class GenerationTests {
         }
 
         [Fact]
-        public void Should_Kill_Of_A_Cell_With_Less_Than_2_Neighbours() {
+        public void Tick_Should_Kill_Of_A_Cell_With_Less_Than_2_Neighbours() {
             var generation = new Generation(new Coordinate(1, 1), new Coordinate(2, 2));
 
             var next = generation.Tick();
@@ -65,7 +65,7 @@ public class GenerationTests {
         }
 
         [Fact]
-        public void Should_Kill_Of_A_Cell_With_More_Than_3_Neighbours() {
+        public void Tick_Should_Kill_Of_A_Cell_With_More_Than_3_Neighbours() {
             var generation = new Generation(new Coordinate(1, 1), new Coordinate(0, 0), new Coordinate(2, 2), new Coordinate(0, 2), new Coordinate(2, 0));
 
             var next = generation.Tick();
@@ -75,7 +75,7 @@ public class GenerationTests {
         }
 
         [Fact]
-        public void Should_Create_A_Cell_With_Exactly_3_Neighbours_If_Already_Dead() {
+        public void Tick_Should_Create_A_Cell_With_Exactly_3_Neighbours_If_Already_Dead() {
             var generation = new Generation(new Coordinate(0, 1), new Coordinate(1, 1), new Coordinate(2, 1));
 
             var next = generation.Tick();
@@ -92,7 +92,47 @@ public class GenerationTests {
     }
 
     public class Misc {
+        [Fact]
+        public void ToString_Should_Return_Empty_String_If_Grid_Is_Empty() {
+            var generation = new Generation();
 
+            Assert.Equal(string.Empty, generation.ToString());
+        }
+
+        [Fact]
+        public void ToString_Should_Return_Proper_String_With_Negative_Coords() {
+            var generation = new Generation(new Coordinate(-1, -1));
+
+            Assert.Equal(Generation.LiveCellChar.ToString(), generation.ToString());
+        }
+
+        [Fact]
+        public void ToString_Should_Return_Proper_String_With_Two_Vert_Coords() {
+            var generation = new Generation(new Coordinate(0, 0), new Coordinate(0, 1));
+
+            Assert.Equal(Generation.LiveCellChar + Environment.NewLine + Generation.LiveCellChar, generation.ToString());
+        }
+
+        [Fact]
+        public void ToString_Should_Return_Proper_String_With_Two_Horz_Coords() {
+            var generation = new Generation(new Coordinate(0, 0), new Coordinate(1, 0));
+
+            Assert.Equal(Generation.LiveCellChar.ToString() + Generation.LiveCellChar, generation.ToString());
+        }
+
+        [Fact]
+        public void ToString_Should_Honour_Rows_Override() {
+            var generation = new Generation(new Coordinate(0, 0));
+
+            Assert.Equal(Generation.LiveCellChar + Environment.NewLine + Generation.DeadCellChar, generation.ToString(2, 0));
+        }
+
+        [Fact]
+        public void ToString_Should_Honour_Cols_Override() {
+            var generation = new Generation(new Coordinate(0, 0));
+
+            Assert.Equal(Generation.LiveCellChar.ToString() + Generation.DeadCellChar, generation.ToString(0, 2));
+        }
     }
 
     public class DiehardSeed {

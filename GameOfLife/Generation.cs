@@ -68,14 +68,14 @@ namespace GameOfLife {
         public Generation Tick() {
             // A little LINQ to calculate the cells which should be allowed to stay alive.
             var stayAlive = from c in _coords
-                            let count = GetNeighbourCount(c.Key)
+                            let count = GetLiveNeighboursCount(c.Key)
                             where count >= TooFewLimit && count <= TooManyLimit
                             select c;
 
             // Easily calculate the 'dead' neighbouring cells (then we will check the freq. of the dead neighbouring cells and if freq. = 3, BOOM! LIFE!)
             var newBorn = _coords.SelectMany(c => GetDeadNeighbours(c.Key))
-                                 .Where(c => GetNeighbourCount(c) == PerfectAmount)
                                  .Distinct()
+                                 .Where(c => GetLiveNeighboursCount(c) == PerfectAmount)
                                  .Select(c => new KeyValuePair<Coordinate, Cell>(c, new Cell(CellState.Alive)));
 
             return new Generation(stayAlive.Union(newBorn));
@@ -91,7 +91,7 @@ namespace GameOfLife {
                         yield return new Coordinate(coord.X + i, coord.Y + j);
         }
 
-        private int GetNeighbourCount(Coordinate coord) {
+        private int GetLiveNeighboursCount(Coordinate coord) {
             return GetNeighbours(coord).Count(IsAlive);
         }
 
@@ -105,16 +105,17 @@ namespace GameOfLife {
         /// <param name="x">X coordinate in the grid.</param>
         /// <param name="y">Y coordinate in the grid.</param>
         /// <returns>Total number of 'live' neighbour (immediate) cells.</returns>
-        public int GetNeighbourCount(int x, int y) {
-            return GetNeighbourCount(new Coordinate(x, y));
+        public int GetLiveNeighboursCount(int x, int y) {
+            return GetLiveNeighboursCount(new Coordinate(x, y));
+        }
+
+        // Accessor function (use with care!)
+        private Cell GetCell(int x, int y) {
+            return _coords.Single(c => c.Key.Equals(new Coordinate(x, y))).Value;
         }
 
         private bool IsAlive(Coordinate coord) {
             return _coords.ContainsKey(coord);
-        }
-
-        private Cell GetCell(int x, int y) {
-            return _coords.Single(c => c.Key.Equals(new Coordinate(x, y))).Value;
         }
 
         /// <summary>
