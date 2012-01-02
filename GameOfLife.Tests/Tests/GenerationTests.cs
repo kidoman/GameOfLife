@@ -93,6 +93,41 @@ public class GenerationTests {
 
     public class Misc {
         [Fact]
+        public void StringConstructor_Should_Throw_Error_If_Grid_String_Has_Insufficient_Cells() {
+            Assert.Throws(typeof(ArgumentException), () => new Generation(string.Empty, 1, 1));
+        }
+
+        [Fact]
+        public void StringConstructor_Should_Ignore_Whitespace_At_Start_And_End() {
+            var generation = new Generation("  -X-  ", 1, 3);
+
+            Assert.Equal(1, generation.TotalAlive);
+            Assert.True(generation.IsAlive(1, 0));
+        }
+
+        [Fact]
+        public void StringConstructor_Should_Handle_Multiple_Rows() {
+            var generation = new Generation("X--X--X--", 3, 3);
+
+            Assert.Equal(3, generation.TotalAlive);
+            Assert.True(generation.IsAlive(0, 0) && generation.IsAlive(0, 1) && generation.IsAlive(0, 2));
+        }
+
+        [Fact]
+        public void StringConstructor_Should_Not_Be_Case_Sensitive_By_Default() {
+            var generation = new Generation("x--x--x--", 3, 3);
+
+            Assert.Equal(3, generation.TotalAlive);
+        }
+
+        [Fact]
+        public void StringConstructor_Should_Be_Case_Sensitive_If_Overridden() {
+            var generation = new Generation("x--x--x--", 3, 3, caseSensitive: true);
+
+            Assert.Equal(0, generation.TotalAlive);
+        }
+
+        [Fact]
         public void ToString_Should_Return_Empty_String_If_Grid_Is_Empty() {
             var generation = new Generation();
 

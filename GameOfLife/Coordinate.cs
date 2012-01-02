@@ -1,6 +1,6 @@
-﻿using System;
+﻿namespace GameOfLife {
+    using System;
 
-namespace GameOfLife {
     public struct Coordinate : IEquatable<Coordinate>, IComparable<Coordinate> {
         private readonly int _x, _y;
 

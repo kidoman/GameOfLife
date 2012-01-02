@@ -1,9 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿namespace GameOfLife {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
 
-namespace GameOfLife {
     public class Generation {
         // Just in case we feel curious about the defining parameters.
         public const int TooFewLimit = 2;
@@ -39,7 +39,7 @@ namespace GameOfLife {
             for (int j = 0; j < rows; j++)
                 for (int i = 0; i < cols; i++)
                     if (caseSensitive && grid[j * cols + i] == _liveCell ||
-                        grid[j * cols + i].ToString().ToUpper() == _liveCell.ToString().ToUpper())
+                        caseSensitive == false && grid[j * cols + i].ToString().ToUpper() == _liveCell.ToString().ToUpper())
                         _coords.Add(new Coordinate(i, j), new Cell(CellState.Alive));
         }
 

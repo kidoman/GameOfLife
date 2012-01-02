@@ -2,7 +2,7 @@
     using System;
     using System.Text;
 
-    public class Program {
+    public class Runner {
         static void Main() {
             Console.WriteLine("Welcome to GameOfLife (by KiD0M4N)");
             Console.WriteLine();
@@ -44,7 +44,7 @@
 
                         generation = generation.Tick();
 
-                        choice = Console.ReadKey();
+                        choice = Console.ReadKey(true);
                     } while (choice.KeyChar != 'q');
                 }
                 else
