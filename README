@@ -1,1 +1,21 @@
 Game Of Life implementation for ThoughtWorks
+    --- by Karan Misra
+
+This implementation has been development from ground up using TDD. 
+A total of 46 unit tests (as of 4:55 AM, 3rd Jan 2012) confirm the
+implemented logic in the submission. The 'Diehard' seed (from Wiki)
+has also been proven to work perfectly in the algorithem.
+
+A strongly typed SortedDictionary<..> is used to benefit from its
+internal BST implementation. This makes retrieval a O(log n) operation
+which 'SHOULD' theoritically help the algorith when dealing with
+large sized grids.
+
+The 'cells' are stored in a dictionary (implemented as a BST) only
+when they are in the 'live' state. Everything else is 'dead' by default.
+
+LINQ is used extensively to easily calculate the tick move. The source
+code has also been document (fairly well) to explain the approach taken.
+
+The implementation is immutable (the next generation is a pure function
+of its previous state.)

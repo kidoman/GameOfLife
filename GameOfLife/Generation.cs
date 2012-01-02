@@ -51,6 +51,7 @@
             : this(coordinates.Select(c => new KeyValuePair<Coordinate, Cell>(c, new Cell(CellState.Alive)))) {
         }
 
+        // Helper constructor.
         private Generation(IEnumerable<KeyValuePair<Coordinate, Cell>> grid) {
             _liveCell = LiveCellChar;
             _deadCell = DeadCellChar;
@@ -81,6 +82,7 @@
             return new Generation(stayAlive.Union(newBorn));
         }
 
+        // Gives the possible neighbours of a particular cell (coord.)
         private static IEnumerable<Coordinate> GetNeighbours(Coordinate coord) {
             // Implemented as an iterator so that we can maximise performance in a large grid.
             for (int i = -1; i <= 1; i++)
@@ -91,10 +93,12 @@
                         yield return new Coordinate(coord.X + i, coord.Y + j);
         }
 
+        // Count the number of 'live' members in the grid.
         private int GetLiveNeighboursCount(Coordinate coord) {
             return GetNeighbours(coord).Count(IsAlive);
         }
 
+        // Get locations of 'dead' cells around a particular coord.
         private IEnumerable<Coordinate> GetDeadNeighbours(Coordinate coord) {
             return GetNeighbours(coord).Where(c => !IsAlive(c));
         }
