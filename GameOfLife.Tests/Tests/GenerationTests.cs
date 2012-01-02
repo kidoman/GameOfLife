@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using Xunit;
@@ -36,15 +35,15 @@ public class GenerationTests {
         public void Should_Be_Empty_If_Starts_Empty() {
             var generation = new Generation();
 
-            Assert.Equal(0, generation.Cells.Count());
+            Assert.Equal(0, generation.TotalAlive);
         }
 
         [Fact]
         public void Should_Have_Cells_If_Started_With_Cells() {
             var generation = new Generation(new Cell(1, 4), new Cell(2, 3));
 
-            Assert.Equal(new Cell(1, 4), generation.Cells[0]);
-            Assert.Equal(new Cell(2, 3), generation.Cells[1]);
+            Assert.True(generation.IsAlive(1, 4));
+            Assert.True(generation.IsAlive(2, 3));
         }
 
         [Fact]
@@ -53,7 +52,7 @@ public class GenerationTests {
 
             var next = generation.Tick();
 
-            Assert.Equal(0, next.Cells.Count());
+            Assert.Equal(0, next.TotalAlive);
         }
 
         [Fact]
@@ -62,7 +61,7 @@ public class GenerationTests {
 
             var next = generation.Tick();
 
-            Assert.Equal(0, next.Cells.Count());
+            Assert.Equal(0, next.TotalAlive);
         }
 
         [Fact]
@@ -71,8 +70,8 @@ public class GenerationTests {
 
             var next = generation.Tick();
 
-            Assert.Equal(4, next.Cells.Count());
-            Assert.False(next.Cells.Contains(new Cell(1, 1)));
+            Assert.Equal(4, next.TotalAlive);
+            Assert.False(next.IsAlive(1, 1));
         }
 
         [Fact]
@@ -81,8 +80,8 @@ public class GenerationTests {
 
             var next = generation.Tick();
 
-            Assert.Equal(3, next.Cells.Count());
-            Assert.True(next.Cells.SequenceEqual(new[] { new Cell(1, 0), new Cell(1, 1), new Cell(1, 2) }));
+            Assert.Equal(3, next.TotalAlive);
+            new List<Cell> { new Cell(1, 0), new Cell(1, 1), new Cell(1, 2) }.ForEach(c => Assert.True(next.IsAlive(c.X, c.Y)));
         }
 
         // Rules:
@@ -98,7 +97,7 @@ public class GenerationTests {
 
     public class DiehardSeed {
         [Fact]
-        public void Should_Result_In_A_Empty_Grid_With_Diehard_Seed() {
+        public void Should_Result_In_A_Empty_Grid_With_Diehard_Seed_At_130th_Tick() {
             var grid = @"------X-XX-------X---XXX";
 
             var generation = new Generation(grid, 3, 8);
@@ -107,12 +106,12 @@ public class GenerationTests {
             for (int i = 0; i < 129; i++)
                 generation = generation.Tick();
 
-            Assert.NotEqual(0, generation.Cells.Count());
+            Assert.NotEqual(0, generation.TotalAlive);
 
             // Run the 130th tick.
             generation = generation.Tick();
 
-            Assert.Equal(0, generation.Cells.Count());
+            Assert.Equal(0, generation.TotalAlive);
         }
     }
 
@@ -157,14 +156,25 @@ X--X
 }
 
 public class Generation {
+    // Just in case we feel curious about the defining parameters.
+    public const int TooFewLimit = 2;
+    public const int TooManyLimit = 3;
+    public const int PerfectAmount = 3;
+
+    /// <summary>
+    /// Default live cell character.
+    /// </summary>
     public const char LiveCell = 'X';
+    /// <summary>
+    /// Default dead cell character.
+    /// </summary>
     public const char DeadCell = '-';
 
     private readonly char _liveCell;
     private readonly char _deadCell;
 
-    private readonly IList<Cell> _cells;
-    public IList<Cell> Cells { get { return _cells; } }
+    // Is this most optimal? Since a lot of lookup calls are happening, maybe a tree would improve perf.
+    private readonly ISet<Cell> _cells;
 
     public Generation(string grid, int rows, int cols, char liveCell = LiveCell, char deadCell = DeadCell) {
         _liveCell = liveCell;
@@ -174,41 +184,85 @@ public class Generation {
         if (grid.Length != rows * cols)
             throw new ArgumentException("Too few cells", "grid");
 
-        var cells = new List<Cell>();
+        _cells = new HashSet<Cell>();
         for (int j = 0; j < rows; j++)
             for (int i = 0; i < cols; i++)
                 if (grid[j * cols + i] == _liveCell)
-                    cells.Add(new Cell(i, j));
-
-        _cells = new ReadOnlyCollection<Cell>(cells);
+                    _cells.Add(new Cell(i, j));
     }
 
     public Generation(params Cell[] cells) {
         _liveCell = LiveCell;
         _deadCell = DeadCell;
 
-        _cells = new ReadOnlyCollection<Cell>(cells);
+        _cells = new HashSet<Cell>(cells);
     }
 
+    /// <summary>
+    /// Moves the generation one tick ahead (in a immutable fashion.)
+    /// </summary>
+    /// <returns>The next generation (Star Wars reference win!)</returns>
     public Generation Tick() {
-        var stayAlive = _cells.Where(c => GetNeighbourCount(c) >= 2 && GetNeighbourCount(c) <= 3);
-        var allDeadNeighbours = _cells.SelectMany(c => GetNeighbourCells(c)).Where(c => !_cells.Any(ce => ce.Equals(c)));
-        var newBorn = (from c in allDeadNeighbours
-                       group c by c into g
-                       select new { Cell = g.Key, Count = g.Count() }).Where(cc => cc.Count == 3).Select(cc => cc.Cell);
+        // A little LINQ to calculate the cells which should be allowed to stay alive.
+        var stayAlive = from c in _cells
+                        let count = GetNeighbourCount(c)
+                        where count >= TooFewLimit && count <= TooManyLimit
+                        select c;
 
-        return new Generation(stayAlive.Union(newBorn).OrderBy(c => c.X).ThenBy(c => c.Y).ToArray());
+        // Easily calculate the 'dead' neighbouring cells (then we will check the freq. of the dead neighbouring cells and if freq. = 3, BOOM! LIFE!)
+        var allDeadNeighbours = _cells.SelectMany(c => GetNeighbourCells(c))
+                                      .Where(c => !IsAlive(c));
+
+        var newBorn = from c in allDeadNeighbours
+                      group c by c into g
+                      where g.Count() == PerfectAmount
+                      select g.Key;
+
+        return new Generation(stayAlive.Union(newBorn)
+                                       .OrderBy(c => c.X)
+                                       .ThenBy(c => c.Y)
+                                       .ToArray());
     }
 
     private int GetNeighbourCount(Cell cell) {
         return _cells.Count(c => Math.Abs(c.X - cell.X) <= 1 && Math.Abs(c.Y - cell.Y) <= 1 && !cell.Equals(c));
     }
 
+    /// <summary>
+    /// Calculates the total number of 'live' neighbour (immediate) cells.
+    /// </summary>
+    /// <param name="x">X coordinate in the grid.</param>
+    /// <param name="y">Y coordinate in the grid.</param>
+    /// <returns>Total number of 'live' neighbour (immediate) cells.</returns>
     public int GetNeighbourCount(int x, int y) {
         return GetNeighbourCount(new Cell(x, y));
     }
 
+    private bool IsAlive(Cell cell) {
+        return _cells.Contains(cell);
+    }
+
+    /// <summary>
+    /// Check if a particular cell is alive or not.
+    /// </summary>
+    /// <param name="x">X coordinate in the grid.</param>
+    /// <param name="y">Y coordinate in the grid.</param>
+    /// <returns>True if alive.</returns>
+    public bool IsAlive(int x, int y) {
+        return IsAlive(new Cell(x, y));
+    }
+
+    /// <summary>
+    /// Get the total number of cells alive in this generation.
+    /// </summary>
+    public int TotalAlive {
+        get {
+            return _cells.Count();
+        }
+    }
+
     private static IEnumerable<Cell> GetNeighbourCells(Cell cell) {
+        // Implemented as an iterator so that we can maximise performance in a large grid.
         for (int i = -1; i <= 1; i++)
             for (int j = -1; j <= 1; j++)
                 if (i == 0 && j == 0)
@@ -228,39 +282,5 @@ public class Generation {
         }
 
         return sb.ToString().Trim();
-    }
-}
-
-public struct Cell : IEquatable<Cell> {
-    private readonly int _x, _y;
-
-    public int X { get { return _x; } }
-    public int Y { get { return _y; } }
-
-    public Cell(int x, int y) {
-        _x = x;
-        _y = y;
-    }
-
-    public override bool Equals(object obj) {
-        if (obj == null)
-            return base.Equals(obj);
-
-        if (obj is Cell)
-            return Equals((Cell)obj);
-
-        return false;
-    }
-
-    public override int GetHashCode() {
-        return _x.GetHashCode() * 31 + _y.GetHashCode();
-    }
-
-    public override string ToString() {
-        return string.Format("[{0},{1}]", _x, _y);
-    }
-
-    public bool Equals(Cell other) {
-        return _x == other._x && _y == other._y;
     }
 }
