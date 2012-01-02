@@ -40,7 +40,7 @@ public class GenerationTests {
 
         [Fact]
         public void Should_Have_Cells_If_Started_With_Cells() {
-            var generation = new Generation(new Cell(1, 4), new Cell(2, 3));
+            var generation = new Generation(new Coordinate(1, 4), new Coordinate(2, 3));
 
             Assert.True(generation.IsAlive(1, 4));
             Assert.True(generation.IsAlive(2, 3));
@@ -48,7 +48,7 @@ public class GenerationTests {
 
         [Fact]
         public void Should_Kill_Of_A_Lone_Cell() {
-            var generation = new Generation(new Cell(1, 1));
+            var generation = new Generation(new Coordinate(1, 1));
 
             var next = generation.Tick();
 
@@ -57,7 +57,7 @@ public class GenerationTests {
 
         [Fact]
         public void Should_Kill_Of_A_Cell_With_Less_Than_2_Neighbours() {
-            var generation = new Generation(new Cell(1, 1), new Cell(2, 2));
+            var generation = new Generation(new Coordinate(1, 1), new Coordinate(2, 2));
 
             var next = generation.Tick();
 
@@ -66,7 +66,7 @@ public class GenerationTests {
 
         [Fact]
         public void Should_Kill_Of_A_Cell_With_More_Than_3_Neighbours() {
-            var generation = new Generation(new Cell(1, 1), new Cell(0, 0), new Cell(2, 2), new Cell(0, 2), new Cell(2, 0));
+            var generation = new Generation(new Coordinate(1, 1), new Coordinate(0, 0), new Coordinate(2, 2), new Coordinate(0, 2), new Coordinate(2, 0));
 
             var next = generation.Tick();
 
@@ -76,12 +76,12 @@ public class GenerationTests {
 
         [Fact]
         public void Should_Create_A_Cell_With_Exactly_3_Neighbours_If_Already_Dead() {
-            var generation = new Generation(new Cell(0, 1), new Cell(1, 1), new Cell(2, 1));
+            var generation = new Generation(new Coordinate(0, 1), new Coordinate(1, 1), new Coordinate(2, 1));
 
             var next = generation.Tick();
 
             Assert.Equal(3, next.TotalAlive);
-            new List<Cell> { new Cell(1, 0), new Cell(1, 1), new Cell(1, 2) }.ForEach(c => Assert.True(next.IsAlive(c.X, c.Y)));
+            new List<Coordinate> { new Coordinate(1, 0), new Coordinate(1, 1), new Coordinate(1, 2) }.ForEach(c => Assert.True(next.IsAlive(c.X, c.Y)));
         }
 
         // Rules:
@@ -173,8 +173,8 @@ public class Generation {
     private readonly char _liveCell;
     private readonly char _deadCell;
 
-    // Is this most optimal? Since a lot of lookup calls are happening, maybe a tree would improve perf.
-    private readonly ISet<Cell> _cells;
+    // Use a BST to speed up lookups/inserts/retrieval
+    private readonly SortedDictionary<Coordinate, Cell> _coords;
 
     public Generation(string grid, int rows, int cols, char liveCell = LiveCell, char deadCell = DeadCell) {
         _liveCell = liveCell;
@@ -184,18 +184,25 @@ public class Generation {
         if (grid.Length != rows * cols)
             throw new ArgumentException("Too few cells", "grid");
 
-        _cells = new HashSet<Cell>();
+        _coords = new SortedDictionary<Coordinate, Cell>();
         for (int j = 0; j < rows; j++)
             for (int i = 0; i < cols; i++)
                 if (grid[j * cols + i] == _liveCell)
-                    _cells.Add(new Cell(i, j));
+                    _coords.Add(new Coordinate(i, j), new Cell());
     }
 
-    public Generation(params Cell[] cells) {
+    public Generation(params Coordinate[] coordinates)
+        : this(coordinates.Select(c => new KeyValuePair<Coordinate, Cell>(c, new Cell()))) {
+    }
+
+    private Generation(IEnumerable<KeyValuePair<Coordinate, Cell>> grid) {
         _liveCell = LiveCell;
         _deadCell = DeadCell;
 
-        _cells = new HashSet<Cell>(cells);
+        _coords = new SortedDictionary<Coordinate, Cell>();
+
+        foreach (var cc in grid)
+            _coords.Add(cc.Key, cc.Value);
     }
 
     /// <summary>
@@ -204,28 +211,35 @@ public class Generation {
     /// <returns>The next generation (Star Wars reference win!)</returns>
     public Generation Tick() {
         // A little LINQ to calculate the cells which should be allowed to stay alive.
-        var stayAlive = from c in _cells
-                        let count = GetNeighbourCount(c)
+        var stayAlive = from c in _coords
+                        let count = GetNeighbourCount(c.Key)
                         where count >= TooFewLimit && count <= TooManyLimit
                         select c;
 
         // Easily calculate the 'dead' neighbouring cells (then we will check the freq. of the dead neighbouring cells and if freq. = 3, BOOM! LIFE!)
-        var allDeadNeighbours = _cells.SelectMany(c => GetNeighbourCells(c))
-                                      .Where(c => !IsAlive(c));
+        var newBorn = _coords.SelectMany(c => GetDeadNeighbours(c.Key))
+                             .Where(c => GetNeighbourCount(c) == PerfectAmount)
+                             .Select(c => new KeyValuePair<Coordinate, Cell>(c, new Cell()));
 
-        var newBorn = from c in allDeadNeighbours
-                      group c by c into g
-                      where g.Count() == PerfectAmount
-                      select g.Key;
-
-        return new Generation(stayAlive.Union(newBorn)
-                                       .OrderBy(c => c.X)
-                                       .ThenBy(c => c.Y)
-                                       .ToArray());
+        return new Generation(stayAlive.Union(newBorn));
     }
 
-    private int GetNeighbourCount(Cell cell) {
-        return _cells.Count(c => Math.Abs(c.X - cell.X) <= 1 && Math.Abs(c.Y - cell.Y) <= 1 && !cell.Equals(c));
+    private static IEnumerable<Coordinate> GetNeighbours(Coordinate coord) {
+        // Implemented as an iterator so that we can maximise performance in a large grid.
+        for (int i = -1; i <= 1; i++)
+            for (int j = -1; j <= 1; j++)
+                if (i == 0 && j == 0)
+                    continue;
+                else
+                    yield return new Coordinate(coord.X + i, coord.Y + j);
+    }
+
+    private int GetNeighbourCount(Coordinate coord) {
+        return GetNeighbours(coord).Count(IsAlive);
+    }
+
+    private IEnumerable<Coordinate> GetDeadNeighbours(Coordinate coord) {
+        return GetNeighbours(coord).Where(c => !IsAlive(c));
     }
 
     /// <summary>
@@ -235,11 +249,11 @@ public class Generation {
     /// <param name="y">Y coordinate in the grid.</param>
     /// <returns>Total number of 'live' neighbour (immediate) cells.</returns>
     public int GetNeighbourCount(int x, int y) {
-        return GetNeighbourCount(new Cell(x, y));
+        return GetNeighbourCount(new Coordinate(x, y));
     }
 
-    private bool IsAlive(Cell cell) {
-        return _cells.Contains(cell);
+    private bool IsAlive(Coordinate coord) {
+        return _coords.ContainsKey(coord);
     }
 
     /// <summary>
@@ -249,7 +263,7 @@ public class Generation {
     /// <param name="y">Y coordinate in the grid.</param>
     /// <returns>True if alive.</returns>
     public bool IsAlive(int x, int y) {
-        return IsAlive(new Cell(x, y));
+        return IsAlive(new Coordinate(x, y));
     }
 
     /// <summary>
@@ -257,26 +271,16 @@ public class Generation {
     /// </summary>
     public int TotalAlive {
         get {
-            return _cells.Count();
+            return _coords.Count();
         }
-    }
-
-    private static IEnumerable<Cell> GetNeighbourCells(Cell cell) {
-        // Implemented as an iterator so that we can maximise performance in a large grid.
-        for (int i = -1; i <= 1; i++)
-            for (int j = -1; j <= 1; j++)
-                if (i == 0 && j == 0)
-                    continue;
-                else
-                    yield return new Cell(cell.X + i, cell.Y + j);
     }
 
     public override string ToString() {
         var sb = new StringBuilder();
 
-        for (int j = Math.Min(0, _cells.Min(c => c.Y)); j <= _cells.Max(c => c.Y); j++) {
-            for (int i = Math.Min(0, _cells.Min(c => c.X)); i <= _cells.Max(c => c.X); i++)
-                sb.Append(_cells.Contains(new Cell(i, j)) ? _liveCell : _deadCell);
+        for (int j = Math.Min(0, _coords.Min(c => c.Key.Y)); j <= _coords.Max(c => c.Key.Y); j++) {
+            for (int i = Math.Min(0, _coords.Min(c => c.Key.X)); i <= _coords.Max(c => c.Key.X); i++)
+                sb.Append(IsAlive(i, j) ? _liveCell : _deadCell);
 
             sb.AppendLine();
         }
