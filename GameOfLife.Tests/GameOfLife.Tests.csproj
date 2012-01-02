@@ -49,7 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Tests\CellTests.cs" />
+    <Compile Include="Tests\CoordinateTests.cs" />
     <Compile Include="Tests\GenerationTests.cs" />
   </ItemGroup>
   <ItemGroup>

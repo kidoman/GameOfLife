@@ -1,45 +1,52 @@
-﻿using System;
+﻿using GameOfLife;
+using Xunit;
+using Xunit.Extensions;
 
-public struct Coordinate : IEquatable<Coordinate>, IComparable<Coordinate> {
-    private readonly int _x, _y;
+public class CoordinateTests {
+    [Fact]
+    public void Default_Constructor_Should_Set_Coordinate_To_0x0() {
+        var coord = new Coordinate();
 
-    public int X { get { return _x; } }
-    public int Y { get { return _y; } }
-
-    public Coordinate(int x, int y) {
-        _x = x;
-        _y = y;
+        Assert.Equal(0, coord.X);
+        Assert.Equal(0, coord.Y);
     }
 
-    public override bool Equals(object obj) {
-        if (obj == null)
-            return base.Equals(obj);
+    [Fact]
+    public void Constructor_Should_Set_The_Values_Properly() {
+        var coord = new Coordinate(1, 1);
 
-        if (obj is Coordinate)
-            return Equals((Coordinate)obj);
-
-        return false;
+        Assert.Equal(1, coord.X);
+        Assert.Equal(1, coord.Y);
     }
 
-    public override int GetHashCode() {
-        return _x.GetHashCode() * 31 + _y.GetHashCode();
+    [Fact]
+    public void HashCode_Matches_For_Equal_Coords() {
+        var coord1 = new Coordinate(1, 4);
+        var coord2 = new Coordinate(1, 4);
+
+        Assert.Equal(coord1.GetHashCode(), coord2.GetHashCode());
     }
 
-    public override string ToString() {
-        return string.Format("[{0},{1}]", _x, _y);
+    [Fact]
+    public void Equals_Returns_True_For_Matching_Coords() {
+        var coord1 = new Coordinate(1, 4);
+        var coord2 = new Coordinate(1, 4);
+
+        Assert.True(coord1.Equals(coord2));
     }
 
-    public bool Equals(Coordinate other) {
-        return _x == other._x && _y == other._y;
-    }
+    [Theory]
+    [InlineData(-1, -1, 1, 1, -1)]
+    [InlineData(-10, -10, -5, -5, -1)]
+    [InlineData(-10, -5, -5, -10, -1)]
+    [InlineData(-5, -10, -10, -5, 1)]
+    [InlineData(5, 5, 10, 10, -1)]
+    [InlineData(5, 10, 10, 5, -1)]
+    [InlineData(10, 5, 5, 10, 1)]
+    public void CompareTo_Returns_Correct_Comparison_For_All_Data(int x1, int y1, int x2, int y2, int result) {
+        var coord1 = new Coordinate(x1, y1);
+        var coord2 = new Coordinate(x2, y2);
 
-    public int CompareTo(Coordinate other) {
-        if (_x == other._x)
-            return _y.CompareTo(other._y);
-        else
-            return _x.CompareTo(other._x);
+        Assert.Equal(result, coord1.CompareTo(coord2));
     }
-}
-
-public struct Cell {
 }
