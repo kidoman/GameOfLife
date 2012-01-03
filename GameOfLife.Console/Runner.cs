@@ -7,12 +7,12 @@
             Console.WriteLine("Welcome to GameOfLife (by KiD0M4N)");
             Console.WriteLine();
 
-            Console.Write("Press c to enter pattern or any other key to exit: ");
+            Console.Write("Press (s for single step, c for constant simulation) to enter pattern or any other key to exit: ");
             do {
                 var choice = Console.ReadKey(true);
                 Console.WriteLine();
 
-                if (choice.KeyChar == 'c') {
+                if (choice.KeyChar == 'c' || choice.KeyChar == 's') {
                     Console.WriteLine();
                     Console.WriteLine("Enter pattern (one row per line, each row equal length, empty line to stop): ");
                     Console.WriteLine();
@@ -32,7 +32,10 @@
                         rows++;
                     } while (true);
 
-                    Console.WriteLine("Hit any key to update the game grid or q to quit...");
+                    var singleStep = choice.KeyChar == 's';
+
+                    if (singleStep)
+                        Console.WriteLine("Hit any key to update the game grid or q to quit...");
 
                     var generation = new Generation(grid.ToString(), rows, cols);
                     var count = 0;
@@ -44,8 +47,9 @@
 
                         generation = generation.Tick();
 
-                        choice = Console.ReadKey(true);
-                    } while (choice.KeyChar != 'q');
+                        if (singleStep)
+                            choice = Console.ReadKey(true);
+                    } while (singleStep && choice.KeyChar != 'q' || !singleStep);
                 }
                 else
                     break;
