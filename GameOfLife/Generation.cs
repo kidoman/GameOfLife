@@ -68,13 +68,14 @@
         /// <returns>The next generation (Star Wars reference win!)</returns>
         public Generation Tick() {
             // A little LINQ to calculate the cells which should be allowed to stay alive.
-            var stayAlive = from c in _coords
+            var stayAlive = from c in _coords.AsParallel()
                             let count = GetLiveNeighboursCount(c.Key)
                             where count >= TooFewLimit && count <= TooManyLimit
                             select c;
 
             // Easily calculate the 'dead' neighbouring cells (then we will check the freq. of the dead neighbouring cells and if freq. = 3, BOOM! LIFE!)
-            var newBorn = _coords.SelectMany(c => GetDeadNeighbours(c.Key))
+            var newBorn = _coords.AsParallel()
+                                 .SelectMany(c => GetDeadNeighbours(c.Key))
                                  .Distinct()
                                  .Where(c => GetLiveNeighboursCount(c) == PerfectAmount)
                                  .Select(c => new KeyValuePair<Coordinate, Cell>(c, new Cell(CellState.Alive)));
@@ -159,10 +160,15 @@
             if (TotalAlive < 1)
                 return string.Empty;
 
+            int minY = Math.Min(0, _coords.Min(c => c.Key.Y)),
+                maxY = Math.Max(rows - 1, _coords.Max(c => c.Key.Y)),
+                minX = Math.Min(0, _coords.Min(c => c.Key.X)),
+                maxX = Math.Max(cols - 1, _coords.Max(c => c.Key.X));
+
             var sb = new StringBuilder();
 
-            for (int j = Math.Min(0, _coords.Min(c => c.Key.Y)); j <= Math.Max(rows - 1, _coords.Max(c => c.Key.Y)); j++) {
-                for (int i = Math.Min(0, _coords.Min(c => c.Key.X)); i <= Math.Max(cols - 1, _coords.Max(c => c.Key.X)); i++)
+            for (int j = minY; j <= maxY; j++) {
+                for (int i = minX; i <= maxX; i++)
                     sb.Append(IsAlive(i, j) ? GetCell(i, j).ToString() : _deadCell.ToString());
 
                 sb.AppendLine();

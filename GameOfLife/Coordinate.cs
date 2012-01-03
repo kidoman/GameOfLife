@@ -35,10 +35,7 @@
         }
 
         public int CompareTo(Coordinate other) {
-            if (_x == other._x)
-                return _y.CompareTo(other._y);
-            else
-                return _x.CompareTo(other._x);
+            return (_x < other._x) ? -1 : ((_x > other._x) ? 1 : ((_y < other._y) ? -1 : ((_y > other._y) ? 1 : 0)));
         }
     }
 }
