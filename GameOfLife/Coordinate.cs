@@ -23,7 +23,7 @@
         }
 
         public override int GetHashCode() {
-            return _x.GetHashCode() * 31 + _y.GetHashCode();
+            return (_x * 0x1f1f1f1f) ^ _y;
         }
 
         public override string ToString() {

@@ -33,7 +33,7 @@
 
             grid = grid.Trim();
             if (grid.Length != rows * cols)
-                throw new ArgumentException("Too few cells.", "grid");
+                throw new ArgumentException("The provided grid string is not long enough.", "grid");
 
             _coords = new SortedList<Coordinate, Cell>();
             for (int j = 0; j < rows; j++)
@@ -110,7 +110,7 @@
 
         // Accessor function (use with care!)
         private Cell GetCell(int x, int y) {
-            return _coords.Single(c => c.Key.Equals(new Coordinate(x, y))).Value;
+            return _coords[new Coordinate(x, y)];
         }
 
         private bool IsAlive(Coordinate coord) {
