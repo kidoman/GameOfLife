@@ -16,7 +16,7 @@
         private readonly char _deadCell;
 
         // Use a BST to speed up lookups/inserts/retrieval
-        private readonly SortedDictionary<Coordinate, Cell> _coords;
+        private readonly SortedList<Coordinate, Cell> _coords;
 
         /// <summary>
         /// Initialize the grid based on string input and specified rows and columns.
@@ -35,7 +35,7 @@
             if (grid.Length != rows * cols)
                 throw new ArgumentException("Too few cells.", "grid");
 
-            _coords = new SortedDictionary<Coordinate, Cell>();
+            _coords = new SortedList<Coordinate, Cell>();
             for (int j = 0; j < rows; j++)
                 for (int i = 0; i < cols; i++)
                     if (caseSensitive && grid[j * cols + i] == _liveCell ||
@@ -56,10 +56,7 @@
             _liveCell = LiveCellChar;
             _deadCell = DeadCellChar;
 
-            _coords = new SortedDictionary<Coordinate, Cell>();
-
-            foreach (var cc in grid)
-                _coords.Add(cc.Key, cc.Value);
+            _coords = new SortedList<Coordinate, Cell>(grid.ToDictionary(cc => cc.Key, cc => cc.Value));
         }
 
         /// <summary>
@@ -80,18 +77,15 @@
                                  .Where(c => GetLiveNeighboursCount(c) == PerfectAmount)
                                  .Select(c => new KeyValuePair<Coordinate, Cell>(c, new Cell(CellState.Alive)));
 
-            return new Generation(stayAlive.Union(newBorn));
+            return new Generation(stayAlive.Union(newBorn).OrderBy(cc => cc.Key));
         }
 
         // Gives the possible neighbours of a particular cell (coord.)
         private static IEnumerable<Coordinate> GetNeighbours(Coordinate coord) {
-            // Implemented as an iterator so that we can maximise performance in a large grid.
-            for (int i = -1; i <= 1; i++)
-                for (int j = -1; j <= 1; j++)
-                    if (i == 0 && j == 0)
-                        continue;
-                    else
-                        yield return new Coordinate(coord.X + i, coord.Y + j);
+            return Enumerable.Range(-1, 3)
+                             .SelectMany(i => Enumerable.Range(-1, 3)
+                                                        .Select(j => new Coordinate(coord.X + i, coord.Y + j))
+                                                        .Except(new[] { coord }));
         }
 
         // Count the number of 'live' members in the grid.
